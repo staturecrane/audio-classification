@@ -12,7 +12,8 @@ You will also need to install [torchaudio](https://github.com/pytorch/audio) (an
 
 ## Speech Commands
 
-To run the speech commands dataset, first [download](https://ai.googleblog.com/2017/08/launching-speech-commands-dataset.html) it from Google and extract it into your directory of choice. Then you can call
+To run the speech commands dataset, first [download](https://ai.googleblog.co
+.m/2017/08/launching-speech-commands-dataset.html) it from Google and extract it into your directory of choice. Then you can call
 
 ```shell
 PYTHONPATH=. python [python3] training/commands.py -d PATH/TO/SPEECH/COMMANDS/FOLDER -b BATCH_SIZE -e EPOCHS

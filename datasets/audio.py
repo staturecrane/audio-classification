@@ -16,7 +16,7 @@ def audio_loader(path, max_length_in_seconds, pad_and_truncate):
             difference = max_length - audio_size[1]
             padding = torch.zeros(audio_size[0], difference)
             padded_audio = torch.cat([audio_tensor, padding], 1)
-+            return padded_audio
+            return padded_audio
 
         if audio_tensor.size(1) > max_length:
             return audio_tensor[:max_length]
