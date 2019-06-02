@@ -1,3 +1,4 @@
+import random
 from functools import partial
 
 import torch
@@ -18,8 +19,9 @@ def audio_loader(path, max_length_in_seconds, pad_and_truncate):
             padded_audio = torch.cat([audio_tensor, padding], 1)
             return padded_audio
 
-        if audio_tensor.size(1) > max_length:
-            return audio_tensor[:max_length]
+        if audio_size[1] > max_length:
+            random_idx = random.randint(0, audio_size[1] - max_length)
+            return audio_tensor.narrow(1, random_idx, max_length)
     return audio_tensor
 
 
@@ -29,6 +31,6 @@ def get_audio_dataset(datafolder, max_length_in_seconds=2, pad_and_truncate=Fals
         max_length_in_seconds=max_length_in_seconds,
         pad_and_truncate=pad_and_truncate,
     )
-    dataset = DatasetFolder(datafolder, loader_func, ".wav")
+    dataset = DatasetFolder(datafolder, loader_func, [".wav", ".mp3"])
 
     return dataset

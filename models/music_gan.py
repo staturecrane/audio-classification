@@ -80,105 +80,74 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
 
         self.main = nn.Sequential(
-            nn.utils.spectral_norm(
-                nn.Conv1d(num_channels, num_dec_features, 25, 4, 1, bias=False)
+            nn.Conv1d(num_channels, num_dec_features, 25, 5, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            PhaseShuffle(2),
+            nn.Conv1d(num_dec_features, num_dec_features * 2, 25, 4, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            PhaseShuffle(2),
+            nn.Conv1d(num_dec_features * 2, num_dec_features * 4, 25, 4, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            PhaseShuffle(2),
+            nn.Conv1d(num_dec_features * 4, num_dec_features * 8, 25, 4, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            PhaseShuffle(2),
+            nn.Conv1d(
+                num_dec_features * 8, num_dec_features * 16, 25, 4, 1, bias=False
             ),
             nn.LeakyReLU(0.2, inplace=True),
             PhaseShuffle(2),
-            nn.utils.spectral_norm(
-                nn.Conv1d(num_dec_features, num_dec_features * 2, 25, 4, 1, bias=False)
-            ),
-            nn.LeakyReLU(0.2, inplace=True),
-            PhaseShuffle(2),
-            nn.utils.spectral_norm(
-                nn.Conv1d(
-                    num_dec_features * 2, num_dec_features * 4, 25, 4, 1, bias=False
-                )
-            ),
-            nn.LeakyReLU(0.2, inplace=True),
-            PhaseShuffle(2),
-            nn.utils.spectral_norm(
-                nn.Conv1d(
-                    num_dec_features * 4, num_dec_features * 8, 25, 4, 1, bias=False
-                )
-            ),
-            nn.LeakyReLU(0.2, inplace=True),
-            PhaseShuffle(2),
-            nn.utils.spectral_norm(
-                nn.Conv1d(
-                    num_dec_features * 8, num_dec_features * 16, 25, 4, 1, bias=False
-                )
-            ),
-            nn.LeakyReLU(0.2, inplace=True),
-            PhaseShuffle(2),
+            nn.Conv1d(num_dec_features * 16, 1, 20, 4, 1, bias=False),
         )
-        self.classifier = nn.Linear(1024 * 9, 1)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, features):
-        hidden = self.main(features)
-        reshaped_hidden = hidden.view(features.size(0), -1)
-        return self.sigmoid(self.classifier(reshaped_hidden))
+        output = self.main(features)
+        return self.sigmoid(output.view(features.size(0)))
 
 
 class Generator(nn.Module):
-    def __init__(self, num_enc_features, num_channels, num_z):
+    def __init__(self, num_enc_features, num_channels, num_z, post_proc_filt_len=512):
         super(Generator, self).__init__()
         self.num_enc_features = num_enc_features
-        self.input_dense = nn.Linear(num_z, 256 * num_enc_features)
+        self.post_proc_filt_len = post_proc_filt_len
         self.main = nn.Sequential(
+            nn.ConvTranspose1d(num_z, num_enc_features * 16, 25, 4, 1, bias=False),
+            nn.ReLU(),
             nn.ConvTranspose1d(
-                num_enc_features * 16,
-                num_enc_features * 8,
-                25,
-                4,
-                11,
-                output_padding=1,
-                bias=False,
+                num_enc_features * 16, num_enc_features * 8, 25, 4, 1, bias=False
             ),
             nn.ReLU(True),
             nn.ConvTranspose1d(
-                num_enc_features * 8,
-                num_enc_features * 4,
-                25,
-                stride=4,
-                padding=11,
-                output_padding=1,
-                bias=False,
+                num_enc_features * 8, num_enc_features * 4, 25, 4, 1, bias=False
             ),
             nn.ReLU(True),
             nn.ConvTranspose1d(
-                num_enc_features * 4,
-                num_enc_features * 2,
-                25,
-                stride=4,
-                padding=11,
-                output_padding=1,
-                bias=False,
+                num_enc_features * 4, num_enc_features * 2, 25, 4, 1, bias=False
             ),
             nn.ReLU(True),
             nn.ConvTranspose1d(
-                num_enc_features * 2,
-                num_enc_features,
-                25,
-                stride=4,
-                padding=11,
-                output_padding=1,
-                bias=False,
+                num_enc_features * 2, num_enc_features, 25, 4, 1, bias=False
             ),
             nn.ReLU(True),
-            nn.ConvTranspose1d(
-                num_enc_features,
-                num_channels,
-                25,
-                stride=4,
-                padding=11,
-                output_padding=1,
-                bias=False,
-            ),
+            nn.ConvTranspose1d(num_enc_features, num_channels, 25, 5, 1, bias=False),
             nn.Tanh(),
         )
 
+        self.ppfilter1 = nn.Conv1d(num_channels, num_channels, post_proc_filt_len)
+
+        for m in self.modules():
+            if isinstance(m, nn.ConvTranspose1d) or isinstance(m, nn.Linear):
+                nn.init.kaiming_normal(m.weight.data)
+
     def forward(self, tensor):
-        tensor = self.input_dense(tensor)
-        return self.main(tensor.view(-1, self.num_enc_features * 16, 16))
+        output = self.main(tensor)
+        if (self.post_proc_filt_len % 2) == 0:
+            pad_left = self.post_proc_filt_len // 2
+            pad_right = pad_left - 1
+        else:
+            pad_left = (self.post_proc_filt_len - 1) // 2
+            pad_right = pad_left
+        output = self.ppfilter1(F.pad(output, (pad_left, pad_right)))
+
+        return output
