@@ -46,8 +46,8 @@ def main(data_directory, num_epochs, batch_size):
     criterion = torch.nn.BCELoss()
     MSE = torch.nn.MSELoss()
 
-    real_label = 1
-    fake_label = 0
+    real_label = 0.9
+    fake_label = 0.1
 
     for epoch in range(num_epochs):
         for sample_idx, (audio, _) in enumerate(dataloader):

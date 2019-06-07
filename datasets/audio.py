@@ -22,6 +22,7 @@ def audio_loader(path, max_length_in_seconds, pad_and_truncate):
         if audio_size[1] > max_length:
             random_idx = random.randint(0, audio_size[1] - max_length)
             return audio_tensor.narrow(1, random_idx, max_length)
+
     return audio_tensor
 
 
